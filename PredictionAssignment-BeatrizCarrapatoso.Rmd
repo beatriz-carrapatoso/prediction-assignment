@@ -1,0 +1,241 @@
+---
+title: "Practical Machine Learning: Prediction Assignment"
+author: "Beatriz Sampaio da Nóvoa Carrapatoso"
+date: "15/9/2019"
+output: html_document
+---
+
+## Introduction
+This document represents the final project for the Practical Machine Learning course in the Data Science specialization.
+
+Nowadays, more and more importance is given to health and exercise and body activity measurement devices are now utilized by an increasing number of athletes. Human motion accelerometers are very easy to use, enable the collection of significant amounts of data and can be used by everyone, providing relevant information for future improvements and giving a better understanding on the quality of the performed exercises. 
+
+Given real measurements from accelerometers used by a group of individuals in multiple body parts (belt, forearm, arm and dumbell), the main goal of this project is to develop an accurate predictive model to foresee the manner in which a group of testers exercised. 
+
+When regarding the existing data, the variable to predict is named 'Classe' and represents how well the weight lifting is performed: class A corresponds to a perfect execution of the exercise, while the remaining correspond to different types of mistakes.
+
+```{r libraries, include = FALSE}
+library(caret)
+library(ggplot2)
+library(rpart)
+library(randomForest)
+library(rattle)
+library(corrplot)
+```
+
+## Data input & initial analysis
+
+Gathering data always comes out to be the initial step in modelling. In order to do this, the two provided files were imported to the model.
+
+```{r input}
+url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test  <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+base_data <- read.csv(url(url_train), header=TRUE, sep=",", na.strings = c("NA", "", "#DIV/0!"))
+testing_final <- read.csv(url(url_test), header=TRUE, sep=",", na.strings = c("NA", "", "#DIV/0!"))
+```
+
+Having the data loaded, the following step of a predictive model encompasses the splitting of the data into training and testing. Thus, around 70% of the data will be used for training the models, 30% for testing and validating them and a separate dataset (testing_final) will be used for answering the final quizz.
+
+```{r partition}
+inTrain <- createDataPartition(base_data$classe, p=0.7, list = F)
+training <- base_data[inTrain,]
+testing <- base_data[-inTrain,]     
+dim(training)
+dim(testing)
+```
+
+## Data cleaning
+
+Having quality in our data is critical for ensuring a model with good performance. This being said, cleaning and analyzing the data is a very important step before testing any developed model.
+Three different steps were performed in order to clean the base data:  
+1. Exclude the first five columns from the analysis, since they represent only identifying variables which should not be used for differentiation of observations.   
+2. Exlude variables in which more than 75% of the observations are null values, since these can affect the performance and accuracy of any model.  
+3. Exclude predictors which have either a unique level across the dataset or have a variance very close to zero (one of the levels has a very strong preponderance when comparing to the others), since these can lead the model to wrong conclusions or patterns.  
+
+
+```{r cleaning}
+
+# Data cleaning: step 1
+training <- training[,-c(1:5)]
+testing <- testing[,-c(1:5)]
+
+# Data cleaning: step 2
+NA_values <- sapply(training, function(x) sum(is.na(x))>0.75*length(x))
+training <- training[, NA_values==FALSE]
+testing  <- testing[, NA_values==FALSE]
+
+# Data cleaning: step 3
+zeroVar <- nearZeroVar(training)
+training <- training[, -zeroVar]
+testing  <- testing[, -zeroVar]
+
+dim(training)
+dim(testing)
+
+```
+
+Having reduced the number of predictors to use in the predictive model (from 160 to 54), it is important to analyse potential existing correlations between variables.
+In order to do so, a correlation matrix was plotted (shown in Appendix 1) which shows the positive (blue) and negative (red) correlations.   
+It is possible to verify that the number of variables that appear to be correlated is very low. Thus, and since this should not impact the final results, no further variables will be removed from the original dataset.  
+Another way to further reduce the number of predictors would be to perform a Principal Component Analysis (PCA). Nonetheless, after verifying the little correlations between variables, this step will be skipped.
+
+
+```{r correlation, echo=FALSE}
+correlMatrix <- cor(training[, -54])
+```
+
+
+## Model development
+
+Having finished the process of data cleansing, the following step is to define which models to perform, its characteristics and which output is more relevant for the specific case.
+
+In order to better understand how each model will perform in new datasets and to really assess its predictive capability, k-fold cross-validation was used. In this context, 10 folds of sample data were created and, for for each iteration, a model was fitted in the training data and tested in the validation set. 
+Including this process in the developed prediction model increases the confidence on the model and on the obtained results.
+
+Due to the available time for multiple iterations, a range of five models was created (linear, non-linear and other advanced models):  
+1. Linear descriminant analysis  
+2. K Nearest neighbor  
+3. Random forest  
+4. Decision tree   
+5. Gradient boosting machine  
+
+No parameter fine tuning occured in the developed models due to its high accuracy using the default parameters. Nonetheless, for more complex models, parameter fine tuning appears as a relevant matter for increasing a models' predictive power. 
+
+```{r modeling}
+
+fitControl <- trainControl(method="cv", number=10)
+
+modFitLDA <- train(classe~., data=training, method="lda", metric="Accuracy", trControl=fitControl)
+
+modFitKNN <- train(classe~., data=training, method="knn", metric="Accuracy", trControl=fitControl)
+
+modFitRF <- train(classe ~., method = "rf", data=training, trControl = fitControl)
+
+modFitDT <- rpart(classe ~ ., data=training, method="class")
+
+modFitGBM  <- train(classe ~ ., data=training, method = "gbm", verbose = FALSE, trControl = fitControl)
+
+```
+
+## Model output analysis
+
+Having trained all the different models, it was necessary to analyze the obtained results to get a deeper understanding of each model.   
+Firstly, it was noted that the linear discriminant analysis and the decision tree model were the ones that behaved poorly. Hence, due to having an accuracy below 80%, both models will not show up in depth in the analysis below.  
+
+``` {r outputs1, echo=FALSE}
+predLDA <- predict(modFitLDA, newdata=testing)
+confMatLDA <- confusionMatrix(predLDA, testing$classe)
+``` 
+
+``` {r outputs2}
+# Linear Descriminant Model - Accuracy
+confMatLDA$overall['Accuracy']; 
+``` 
+
+``` {r outputs3, echo=FALSE}
+predictDT <- predict(modFitDT, newdata=testing, type="class")
+confMatDT <- confusionMatrix(predictDT, testing$classe)
+``` 
+
+``` {r outputs4}
+# Decision Tree Model - Accuracy
+confMatDT$overall['Accuracy']; 
+``` 
+
+The remaining models were organized according to its resulting accuracy (in increasing order) and relevant conclusions were drawed.
+All three top models perform very steadily and demonstrate little performance variation between each iteration.  
+In order to better understand the performance difference between models, confusion matrixes were plotted for each model - only the Random Forest model will be described with deeper detail, due to its significant accuracy.
+
+### 1) K Nearest Neighbor Model
+
+``` {r outputs5, echo=FALSE}
+predKNN <- predict(modFitKNN, newdata=testing)
+confMatKNN <- confusionMatrix(predKNN, testing$classe)
+
+plot(confMatKNN$table, col = confMatKNN$byClass, 
+     main = paste("KNN - Accuracy =",
+                  round(confMatKNN$overall['Accuracy'], 4)))
+
+```
+
+### 2) Gradient Boosting Machine Model
+
+``` {r outputs6, echo=FALSE}
+predictGBM <- predict(modFitGBM, newdata=testing)
+confMatGBM <- confusionMatrix(predictGBM, testing$classe)
+
+plot(confMatGBM$table, col = confMatGBM$byClass, 
+     main = paste("GBM - Accuracy =", round(confMatGBM$overall['Accuracy'], 4)))
+
+```
+
+### 3) Random Forest Model
+
+Analyzing the results for the Random Forest Model, it is possible to verify that this model outperformed the remaining in terms of quality.
+An overall accuracy of 99,8% was achieved with a Kappa value of around 99,7% and an out of sample error rate near zero (2,04%), demonstrating a close-to-perfection behaviour from the model. 
+
+
+``` {r outputs7}
+predictRF <- predict(modFitRF, newdata=testing)
+confMatRF <- confusionMatrix(predictRF, testing$classe)
+```
+
+``` {r outputs8, echo = FALSE}
+plot(confMatRF$table, col = confMatRF$byClass, main = paste("Random Forest - Accuracy =", round(confMatRF$overall['Accuracy'], 4)))
+```
+
+``` {r outputs9, message=F, warning=F}
+#Out of Sample Error Rate
+ErrorRate  <- (1 - confMatRF$overall['Accuracy']) 
+#Out of Sample Error Rate
+ErrorRate
+```
+
+When plotting the importance given to variables in the model, it's possible to notice that predictors Num_Window, Roll_Belt and Pitch_Forearm are the ones that contribute the most to the overall predicting performance.  
+
+Due to its high performance, the Random Forest Model was chosen to predict on the final validation sample,
+
+``` {r outputs10}
+#Confusion matrix
+confMatRF
+
+#Get model variable importance (scaled) - Top 10
+variableImp <- varImp(modFitRF)
+```
+
+``` {r outputs11, echo=FALSE}
+plot(variableImp, top=10, type = "p", ylab="Predictors", main = "Random Forest: Variable Importance", col=1, pch = 15, cex=1.5)
+```
+
+When developing predictive models, it is crutial to analyze the difference between the obtained performance for the training and test set.  
+In case the predictive power decreases significantly from the train model to the test, the model may be overfitting and should be reviewed. In case the predictive power increases significantly from the train model to the test, there may exist other important predictors or analysis that should be performed to increase the overall performence.  
+In the current project, the model performance had little variation from the train to the test, demonstrating its interesting performance.
+
+## Final predictions & main conclusions
+
+Given the obtained accuracies from the different models, the one to be used for the final predictions will be Ranfom Forests (higher accuracy - 0.998). Nonetheless, it is relevant to notice that GBM (second higher accuracy - 0.989) has a very similar performance and is less time-consuming.  
+Hence, if there were computational restrictions, GBM would be the chosen model, rather than Random Forests.   
+For future work, it would be interesting to experiment the development of an ensemble model (i.e combining GBM and Random Forests). Nonetheless, due to the already-high performance of the obtained models, it will not be necessary.    
+Utilizing the chosen model, it is possible to predict the performance of the individuals in the testing set and to obtain the final results for the project.
+
+```{r prediction}
+
+final_prediction <- predict(modFitRF, newdata=testing_final)
+table(final_prediction,testing_final$problem_id)
+
+```
+
+
+## Appendix
+
+### 1 - Correlation matrix  
+``` {r appendix1, echo=FALSE}
+corrplot(correlMatrix, order = "FPC", method = "color", type = "lower", title = "Correlation plot",
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+```
+
+### 2 - Decision tree plotting  
+``` {r appendix2, echo=FALSE}
+fancyRpartPlot(modFitDT)
+```
