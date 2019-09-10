@@ -226,16 +226,17 @@ table(final_prediction,testing_final$problem_id)
 
 ```
 
-
+  
+  
 ## Appendix
 
 ### 1 - Correlation matrix  
 ``` {r appendix1, echo=FALSE}
-corrplot(correlMatrix, order = "FPC", method = "color", type = "lower", title = "Correlation plot",
-         tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+corrplot(correlMatrix, order = "FPC", method = "color", type = "lower",
+         tl.cex = 0.7, tl.col = rgb(0, 0, 0))
 ```
 
 ### 2 - Decision tree plotting  
-``` {r appendix2, echo=FALSE}
+``` {r appendix2, echo=FALSE, warning=F}
 fancyRpartPlot(modFitDT)
 ```
