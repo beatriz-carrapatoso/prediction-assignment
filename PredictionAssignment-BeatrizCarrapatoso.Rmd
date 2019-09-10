@@ -77,7 +77,9 @@ dim(testing)
 
 Having reduced the number of predictors to use in the predictive model (from 160 to 54), it is important to analyse potential existing correlations between variables.
 In order to do so, a correlation matrix was plotted (shown in Appendix 1) which shows the positive (blue) and negative (red) correlations.   
+
 It is possible to verify that the number of variables that appear to be correlated is very low. Thus, and since this should not impact the final results, no further variables will be removed from the original dataset.  
+
 Another way to further reduce the number of predictors would be to perform a Principal Component Analysis (PCA). Nonetheless, after verifying the little correlations between variables, this step will be skipped.
 
 
@@ -121,6 +123,7 @@ modFitGBM  <- train(classe ~ ., data=training, method = "gbm", verbose = FALSE, 
 ## Model output analysis
 
 Having trained all the different models, it was necessary to analyze the obtained results to get a deeper understanding of each model.   
+
 Firstly, it was noted that the linear discriminant analysis and the decision tree model were the ones that behaved poorly. Hence, due to having an accuracy below 80%, both models will not show up in depth in the analysis below.  
 
 ``` {r outputs1, echo=FALSE}
@@ -145,6 +148,7 @@ confMatDT$overall['Accuracy'];
 
 The remaining models were organized according to its resulting accuracy (in increasing order) and relevant conclusions were drawed.
 All three top models perform very steadily and demonstrate little performance variation between each iteration.  
+
 In order to better understand the performance difference between models, confusion matrixes were plotted for each model - only the Random Forest model will be described with deeper detail, due to its significant accuracy.
 
 ### 1) K Nearest Neighbor Model
@@ -177,6 +181,7 @@ An overall accuracy of 99,8% was achieved with a Kappa value of around 99,7% and
 
 
 ``` {r outputs7}
+#Prediction on the testing set with the Random Forest model
 predictRF <- predict(modFitRF, newdata=testing)
 confMatRF <- confusionMatrix(predictRF, testing$classe)
 ```
@@ -192,10 +197,6 @@ ErrorRate  <- (1 - confMatRF$overall['Accuracy'])
 ErrorRate
 ```
 
-When plotting the importance given to variables in the model, it's possible to notice that predictors Num_Window, Roll_Belt and Pitch_Forearm are the ones that contribute the most to the overall predicting performance.  
-
-Due to its high performance, the Random Forest Model was chosen to predict on the final validation sample,
-
 ``` {r outputs10}
 #Confusion matrix
 confMatRF
@@ -203,6 +204,11 @@ confMatRF
 #Get model variable importance (scaled) - Top 10
 variableImp <- varImp(modFitRF)
 ```
+
+After concluding that the accuracy of the obtained model is significantly high, it becomes interesting to analyze which variables are widely used in the final predictions.  
+When plotting the importance given to variables in the model, it's possible to notice that predictors Num_Window, Roll_Belt and Pitch_Forearm are the ones that mostly contribute to the overall predicting performance.  
+
+Based on all the previous analysis and due to its high performance, the Random Forest Model was chosen for the predictions on the final validation sample.
 
 ``` {r outputs11, echo=FALSE}
 plot(variableImp, top=10, type = "p", ylab="Predictors", main = "Random Forest: Variable Importance", col=1, pch = 15, cex=1.5)
@@ -216,6 +222,7 @@ In the current project, the model performance had little variation from the trai
 
 Given the obtained accuracies from the different models, the one to be used for the final predictions will be Ranfom Forests (higher accuracy - 0.998). Nonetheless, it is relevant to notice that GBM (second higher accuracy - 0.989) has a very similar performance and is less time-consuming.  
 Hence, if there were computational restrictions, GBM would be the chosen model, rather than Random Forests.   
+
 For future work, it would be interesting to experiment the development of an ensemble model (i.e combining GBM and Random Forests). Nonetheless, due to the already-high performance of the obtained models, it will not be necessary.    
 Utilizing the chosen model, it is possible to predict the performance of the individuals in the testing set and to obtain the final results for the project.
 
